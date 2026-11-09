@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>每日訓練選擇器｜p5.js</title>
+<style>
+  html, body { margin:0; padding:0; background:#f3f7fc; }
+  body { font-family:"Microsoft JhengHei",sans-serif; }
+  canvas { display:block; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+</head>
+<body>
+<script>
+// 每日訓練選擇器｜p5.js
+
+const DEFAULT_SETS = 4; // 每個動作預設組數
+const MAX_PER_PART = 2; // 每個身體部位最多選擇動作數
+
+const PART_NAMES = {
+  arms: "手部／手臂",
+  legs: "腿部",
+  back: "背部",
+  glutes: "臀部"
+};
+
+const EXERCISES = {
+  home: {
+    arms: ["水瓶二頭彎舉", "椅子三頭肌撐體", "水瓶肩推", "跪姿伏地挺身"],
+    legs: ["徒手深蹲", "反向弓箭步", "靠牆深蹲", "提踵"],
+    back: ["彈力帶划船", "超人式", "俯身水瓶划船", "鳥狗式"],
+    glutes: ["臀橋", "徒手臀推", "側躺抬腿", "單腳臀橋"]
+  },
+  gym: {
+    arms: ["啞鈴二頭彎舉", "滑輪三頭下壓", "啞鈴肩推", "槌式彎舉"],
+    legs: ["槓鈴深蹲", "腿推機", "腿伸展機", "腿後勾機"],
+    back: ["高位下拉", "坐姿划船", "胸靠划船", "引體向上"],
+    glutes: ["槓鈴臀推", "羅馬尼亞硬舉", "滑輪後踢", "髖外展機"]
+  }
+};
+
+let environment = "";
+let activePart = "";
+let selectedExercises = [];
+let nextId = 1;
+
+let environmentButtons = {};
+let partButtons = {};
+let exerciseControls = [];
+let selectedArea;
+let messageArea;
+let summaryArea;
+let clearButton;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  textFont("sans-serif");
+  buildInterface();
+  layoutInterface();
+}
+
+function draw() {
+  background("#f3f7fc");
+  noStroke();
+
+  // 淺藍色標題區
+  fill("#dcecff");
+  rect(0, 0, width, 116);
+  fill("#34465d");
+  textAlign(CENTER, CENTER);
+  textStyle(BOLD);
+  textSize(27);
+  text("每日訓練選擇器", width / 2, 38);
+  textStyle(NORMAL);
+  textSize(14);
+  fill("#6c7e94");
+  text("先選訓練環境，再挑選身體部位與動作", width / 2, 78);
+
+  // 內容區標籤
+  textAlign(LEFT, CENTER);
+  fill("#34465d");
+  textStyle(BOLD);
+  textSize(17);
+  text("第一步｜選擇訓練環境", 24, 143);
+  text("第二步｜選擇身體部位", 24, 222);
+  text("動作名稱", 24, 301);
+  text("今天的訓練清單", 24, 465);
+  textStyle(NORMAL);
+
+  fill("#7a8ba0");
+  textSize(13);
+  text("每個部位最多選 2 個不同動作；每個動作預設 4 組。", 24, 489);
+}
+
+function buildInterface() {
+  // 環境按鈕
+  environmentButtons.home = createButton("居家");
+  environmentButtons.gym = createButton("健身房");
+  for (const key in environmentButtons) {
+    const button = environmentButtons[key];
+    styleButton(button, true);
+    button.mousePressed(() => chooseEnvironment(key));
+  }
+
+  // 身體部位按鈕
+  for (const key in PART_NAMES) {
+    const button = createButton(PART_NAMES[key]);
+    partButtons[key] = button;
+    styleButton(button, false);
+    button.mousePressed(() => choosePart(key));
+  }
+
+  messageArea = createDiv("");
+  messageArea.style("color", "#a45143");
+  messageArea.style("font-size", "13px");
+
+  selectedArea = createDiv("");
+  selectedArea.style("display", "flex");
+  selectedArea.style("flex-direction", "column");
+  selectedArea.style("gap", "7px");
+
+  summaryArea = createDiv("已選 0 個動作。");
+  summaryArea.style("color", "#718196");
+  summaryArea.style("font-size", "13px");
+
+  clearButton = createButton("清空清單");
+  styleButton(clearButton, false);
+  clearButton.mousePressed(() => {
+    selectedExercises = [];
+    renderSelected();
+    renderExerciseChoices();
+  });
+}
+
+function styleButton(button, primary) {
+  button.style("font-family", "Microsoft JhengHei, sans-serif");
+  button.style("font-size", "14px");
+  button.style("padding", "9px 15px");
+  button.style("border-radius", "10px");
+  button.style("border", "1px solid #cbdced");
+  button.style("background", primary ? "#9fc5ed" : "#ffffff");
+  button.style("color", "#35465b");
+  button.style("cursor", "pointer");
+}
+
+function layoutInterface() {
+  const contentWidth = min(width - 40, 720);
+  const left = (width - contentWidth) / 2;
+  const gap = 10;
+
+  let x = left;
+  let y = 165;
+  for (const key of ["home", "gym"]) {
+    environmentButtons[key].position(x, y);
+    environmentButtons[key].size(130, 38);
+    x += 140;
+  }
+
+  x = left;
+  y = 244;
+  for (const key of ["arms", "legs", "back", "glutes"]) {
+    partButtons[key].position(x, y);
+    partButtons[key].size(key === "arms" ? 130 : 100, 36);
+    x += (key === "arms" ? 140 : 110);
+  }
+
+  // 動作選擇與清單使用 DOM 元件，視窗縮放時重新排列
+  const rowWidth = max(250, contentWidth - 4);
+  let choiceY = 324;
+  exerciseControls.forEach((item, index) => {
+    item.checkbox.position(left + 2, choiceY + index * 31);
+    item.label.position(left + 28, choiceY + index * 31 - 2);
+    item.note.position(left + rowWidth - 75, choiceY + index * 31);
+  });
+
+  let selectedY = 520;
+  selectedArea.position(left, selectedY);
+  selectedArea.size(rowWidth, 240);
+  summaryArea.position(left, selectedY + 250);
+  clearButton.position(left + rowWidth - 105, selectedY + 245);
+  clearButton.size(100, 34);
+  messageArea.position(left, 430);
+}
+
+function chooseEnvironment(key) {
+  environment = key;
+  activePart = "";
+  selectedExercises = [];
+  for (const envKey in environmentButtons) {
+    environmentButtons[envKey].style("background", envKey === key ? "#9fc5ed" : "#ffffff");
+  }
+  for (const partKey in partButtons) {
+    partButtons[partKey].style("background", "#ffffff");
+  }
+  renderExerciseChoices();
+  renderSelected();
+  layoutInterface();
+}
+
+function choosePart(key) {
+  if (!environment) {
+    messageArea.html("請先選擇居家或健身房。");
+    return;
+  }
+  activePart = key;
+  for (const partKey in partButtons) {
+    partButtons[partKey].style("background", partKey === key ? "#9fc5ed" : "#ffffff");
+  }
+  renderExerciseChoices();
+  layoutInterface();
+}
+
+function renderExerciseChoices() {
+  exerciseControls.forEach(item => {
+    item.checkbox.remove();
+    item.label.remove();
+    item.note.remove();
+  });
+  exerciseControls = [];
+
+  if (!environment || !activePart) {
+    messageArea.html("");
+    return;
+  }
+
+  const names = EXERCISES[environment][activePart];
+  const selectedCount = selectedExercises.filter(item => item.part === activePart).length;
+
+  names.forEach(name => {
+    const alreadySelected = selectedExercises.some(
+      item => item.part === activePart && item.name === name
+    );
+
+    const checkbox = createCheckbox("", alreadySelected);
+    checkbox.style("accent-color", "#5a91ca");
+    checkbox.changed(() => {
+      const exists = selectedExercises.some(
+        item => item.part === activePart && item.name === name
+      );
+
+      if (checkbox.checked()) {
+        const count = selectedExercises.filter(item => item.part === activePart).length;
+        if (count >= MAX_PER_PART) {
+          checkbox.checked(false);
+          messageArea.html(`每個部位最多只能選 ${MAX_PER_PART} 個動作。`);
+          return;
+        }
+        if (!exists) {
+          selectedExercises.push({
+            id: nextId++,
+            part: activePart,
+            name,
+            sets: DEFAULT_SETS
+          });
+        }
+      } else {
+        selectedExercises = selectedExercises.filter(
+          item => !(item.part === activePart && item.name === name)
+        );
+      }
+      renderSelected();
+      renderExerciseChoices();
+      layoutInterface();
+    });
+
+    const label = createDiv(name);
+    label.style("font-family", "Microsoft JhengHei, sans-serif");
+    label.style("font-size", "14px");
+    label.style("color", "#35465b");
+
+    const note = createDiv(alreadySelected ? "已加入" : `預設 ${DEFAULT_SETS} 組`);
+    note.style("font-size", "12px");
+    note.style("color", "#8090a3");
+
+    if (!alreadySelected && selectedCount >= MAX_PER_PART) {
+      checkbox.attribute("disabled", "");
+      label.style("color", "#aab3bf");
+    }
+
+    exerciseControls.push({ checkbox, label, note });
+  });
+
+  messageArea.html(selectedCount >= MAX_PER_PART
+    ? `此部位已選滿 ${MAX_PER_PART} 個；取消一個即可更換。`
+    : "");
+}
+
+function renderSelected() {
+  selectedArea.html("");
+  if (selectedExercises.length === 0) {
+    selectedArea.html('<div style="color:#8090a3;font-size:14px">目前還沒有選擇動作。</div>');
+  } else {
+    selectedExercises.forEach(item => {
+      const row = createDiv("");
+      row.parent(selectedArea);
+      row.style("display", "flex");
+      row.style("align-items", "center");
+      row.style("gap", "8px");
+      row.style("flex-wrap", "wrap");
+      row.style("padding", "7px 0");
+      row.style("border-bottom", "1px solid #e8eef6");
+
+      const name = createDiv(`${PART_NAMES[item.part]}｜${item.name}`);
+      name.parent(row);
+      name.style("flex", "1 1 200px");
+      name.style("font-size", "14px");
+      name.style("color", "#35465b");
+
+      const setSelect = createSelect();
+      setSelect.parent(row);
+      [1, 2, 3, 4, 5, 6].forEach(number => setSelect.option(`${number} 組`, number));
+      setSelect.selected(String(item.sets));
+      setSelect.style("font-size", "13px");
+      setSelect.style("padding", "5px");
+      setSelect.changed(() => {
+        item.sets = Number(setSelect.value());
+      });
+
+      const removeButton = createButton("移除");
+      removeButton.parent(row);
+      styleButton(removeButton, false);
+      removeButton.style("padding", "5px 9px");
+      removeButton.mousePressed(() => {
+        selectedExercises = selectedExercises.filter(ex => ex.id !== item.id);
+        renderSelected();
+        renderExerciseChoices();
+        layoutInterface();
+      });
+    });
+  }
+  summaryArea.html(`已選 ${selectedExercises.length} 個動作；每個部位最多 ${MAX_PER_PART} 個。`);
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  layoutInterface();
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>今天吃什麼？不重複抽籤器</title>
+  <style>
+    :root {
+      --main-color: #8dbce8;
+      --main-hover: #6da5db;
+      --background-color: #edf6ff;
+      --card-color: #ffffff;
+      --text-color: #344b68;
+      --border-color: #c9e1f7;
+      --light-blue: #f5faff;
+      --accent-color: #d5e9fc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: var(--background-color);
+      color: var(--text-color);
+      font-family: "Microsoft JhengHei", sans-serif;
+    }
+    .container {
+      width: 100%;
+      max-width: 540px;
+      padding: 30px;
+      background: var(--card-color);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      box-shadow: 0 10px 35px rgba(86, 139, 190, 0.12);
+    }
+    h1 {
+      margin: 0 0 10px;
+      text-align: center;
+      font-size: 30px;
+      color: var(--text-color);
+    }
+    .description {
+      margin: 0 0 26px;
+      text-align: center;
+      color: #7189a5;
+      line-height: 1.8;
+    }
+    label { display: block; margin-bottom: 8px; font-weight: bold; }
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 145px;
+      padding: 14px;
+      border: 2px solid var(--border-color);
+      border-radius: 14px;
+      background: var(--light-blue);
+      color: var(--text-color);
+      font: inherit;
+      font-size: 16px;
+      line-height: 1.8;
+      resize: vertical;
+    }
+    textarea:focus {
+      outline: 3px solid var(--accent-color);
+      border-color: var(--main-color);
+    }
+    .hint {
+      margin: 8px 0 18px;
+      color: #7d91aa;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .button-group { display: flex; gap: 10px; }
+    button {
+      flex: 1;
+      min-width: 0;
+      padding: 13px 10px;
+      border: none;
+      border-radius: 13px;
+      background: var(--main-color);
+      color: #173c60;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+    button:hover:not(:disabled) { background: var(--main-hover); color: white; }
+    button:active:not(:disabled) { transform: scale(0.98); }
+    button:disabled { background: #e2eaf2; color: #8b9caf; cursor: not-allowed; }
+    .secondary-button {
+      background: #e0efff;
+      color: #426b95;
+      border: 1px solid var(--border-color);
+    }
+    .secondary-button:hover:not(:disabled) { background: #c9e2fb; color: #294d73; }
+    .result-box {
+      margin-top: 24px;
+      padding: 22px 16px;
+      border: 2px dashed var(--border-color);
+      border-radius: 18px;
+      text-align: center;
+      background: var(--light-blue);
+    }
+    .result-title { margin: 0 0 12px; color: #7189a5; font-size: 15px; }
+    #result {
+      margin: 0;
+      color: #5d9bd5;
+      font-size: 30px;
+      font-weight: bold;
+      overflow-wrap: anywhere;
+    }
+    #message {
+      min-height: 24px;
+      margin: 12px 0 0;
+      color: #527da8;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .progress-box {
+      margin-top: 20px;
+      padding: 16px;
+      background: #f8fbff;
+      border: 1px solid var(--border-color);
+      border-radius: 15px;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .progress-header h2 { margin: 0; font-size: 17px; }
+    #remaining {
+      padding: 5px 10px;
+      background: #dceeff;
+      border-radius: 20px;
+      color: #426b95;
+      font-size: 13px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+    #history { margin: 0; padding-left: 28px; line-height: 2; overflow-wrap: anywhere; }
+    #history:empty::after {
+      content: "還沒有抽出任何選項";
+      margin-left: -28px;
+      color: #8b9caf;
+      font-size: 14px;
+      list-style: none;
+    }
+    #history li { padding-left: 4px; }
+    #history li::marker { color: #6da5db; font-weight: bold; }
+    .footer-note { margin: 18px 0 0; text-align: center; color: #91a3b8; font-size: 12px; }
+    @media (max-width: 480px) {
+      body { padding: 14px; align-items: flex-start; }
+      .container { padding: 21px; }
+      h1 { font-size: 26px; }
+      .button-group { flex-direction: column; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>🩵 今天吃什麼？</h1>
+    <p class="description">讓美食抽籤幫你決定！<br>每個選項只會被抽中一次。</p>
+
+    <label for="options">🍽️ 食物清單（每行一個選項）</label>
+    <textarea id="options">便當
+麵
+咖哩
+水餃</textarea>
+    <p class="hint">空白行會自動忽略，相同選項只保留一個。修改清單後，會自動重新開始一輪。</p>
+
+    <div class="button-group">
+      <button id="drawButton" type="button">🎲 幫我選</button>
+      <button id="restartButton" class="secondary-button" type="button">↻ 開始新一輪</button>
+    </div>
+
+    <section class="result-box" aria-live="polite" aria-atomic="true">
+      <p class="result-title">✨ 本次抽籤結果 ✨</p>
+      <p id="result">等你來抽籤！</p>
+      <p id="message">準備好就開始吧！</p>
+    </section>
+
+    <section class="progress-box">
+      <div class="progress-header">
+        <h2>📋 本輪抽籤進度</h2>
+        <span id="remaining">剩餘 4 個</span>
+      </div>
+      <ol id="history"></ol>
+    </section>
+
+    <p class="footer-note">每次抽出一個選項，直到全部抽完 </p>
+  </main>
+
+  <script>
+    // ===== 重要參數 =====
+    const DEFAULT_RESULT = "等你來抽籤！";
+    const EMPTY_MESSAGE = "請先輸入至少一個選項";
+    const FINISHED_MESSAGE = "這輪抽完了";
+
+    // 網頁元素
+    const optionsInput = document.getElementById("options");
+    const drawButton = document.getElementById("drawButton");
+    const restartButton = document.getElementById("restartButton");
+    const resultElement = document.getElementById("result");
+    const messageElement = document.getElementById("message");
+    const remainingElement = document.getElementById("remaining");
+    const historyElement = document.getElementById("history");
+
+    // 本輪抽籤資料
+    let allOptions = [];
+    let remainingOptions = [];
+    let drawnOptions = [];
+
+    // 去除空白行、前後空白與重複選項
+    function getValidOptions() {
+      return [...new Set(
+        optionsInput.value
+          .split(/\r?\n/)
+          .map(item => item.trim())
+          .filter(item => item !== "")
+      )];
+    }
+
+    // 更新進度、抽籤紀錄與按鈕狀態
+    function updateProgress() {
+      remainingElement.textContent = "剩餘 " + remainingOptions.length + " 個";
+      historyElement.replaceChildren();
+
+      drawnOptions.forEach(function (food) {
+        const item = document.createElement("li");
+        item.textContent = food;
+        historyElement.appendChild(item);
+      });
+
+      drawButton.disabled = remainingOptions.length === 0;
+      restartButton.disabled = allOptions.length === 0;
+    }
+
+    // 開始新一輪，恢復所有有效選項
+    function startNewRound() {
+      allOptions = getValidOptions();
+      remainingOptions = [...allOptions];
+      drawnOptions = [];
+
+      resultElement.textContent = DEFAULT_RESULT;
+      messageElement.textContent =
+        allOptions.length === 0 ? EMPTY_MESSAGE : "準備好就開始吧！";
+
+      updateProgress();
+    }
+
+    // 抽出一個尚未被抽過的選項
+    function drawFood() {
+      if (remainingOptions.length === 0) {
+        messageElement.textContent =
+          allOptions.length === 0 ? EMPTY_MESSAGE : FINISHED_MESSAGE;
+        updateProgress();
+        return;
+      }
+
+      const randomIndex = Math.floor(Math.random() * remainingOptions.length);
+      const selectedFood = remainingOptions[randomIndex];
+
+      // 從候選清單移除，確保本輪不會重複
+      remainingOptions.splice(randomIndex, 1);
+      drawnOptions.push(selectedFood);
+
+      resultElement.textContent = selectedFood;
+
+      messageElement.textContent = remainingOptions.length === 0
+        ? FINISHED_MESSAGE
+        : "已抽出 " + drawnOptions.length + " 個，繼續抽下一個吧！";
+
+      updateProgress();
+    }
+
+    drawButton.addEventListener("click", drawFood);
+    restartButton.addEventListener("click", startNewRound);
+
+    // 修改清單時，清除舊結果並自動重開一輪
+    optionsInput.addEventListener("input", startNewRound);
+
+    // 網頁載入時初始化
+    startNewRound();
+  </script>
+</body>
+</html>
